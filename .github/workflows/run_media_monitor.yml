@@ -1,29 +1,30 @@
-name: Weekly Media Monitor - Cresco Real Estate
+name: Run Media Monitor
 
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Každé pondělí v 6:00 UTC = 8:00 nášho času
-  workflow_dispatch:      # Umožňuje spustit i ručně
+    # Spouští se každý den v 8:00 ráno UTC (upravte si čas dle potřeby)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Umožňuje spustit skript ručně přes tlačítko v Actions
 
 jobs:
   run-monitor:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Načtení kódu
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Nastavení Pythonu
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Instalace knihoven
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 openpyxl pandas lxml
 
-      - name: Spuštění media monitoru
+      - name: Run media monitor script
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
