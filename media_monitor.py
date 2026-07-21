@@ -11,8 +11,8 @@ RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# Klíčová slova k vyhledávání v Google News
-SEARCH_QUERY = '"Cresco Real Estate" when:7d'
+# Rozšířený dotaz: Hledá "Cresco Real Estate" NEBO "Yards Žižkov" NEBO "SO-HO" za posledních 7 dní
+SEARCH_QUERY = '("Cresco Real Estate" OR "Yards" OR "SO-HO") when:7d'
 
 HEADERS = {
     "User-Agent": (
@@ -65,7 +65,7 @@ def build_email_body(articles):
         return """
         <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>📰 Monitoring médií: Cresco Real Estate</h2>
+            <h2>📰 Monitoring médií: Cresco, Yards, SO-HO</h2>
             <p>Za posledních <b>7 dní</b> nebyly v médiích nalezeny žádné nové zmínky.</p>
         </body>
         </html>
@@ -75,7 +75,8 @@ def build_email_body(articles):
     <html>
     <body style="font-family: Arial, sans-serif; color: #333;">
         <h2 style="color: #1a5276;">📰 Monitoring médií za posledních 7 dní</h2>
-        <p>Bylo nalezeno celkem <b>{len(articles)}</b> článků / zmínek:</p>
+        <p>Sledovaná témata: <b>Cresco Real Estate, Yards, SO-HO</b></p>
+        <p>Nalezeno celkem <b>{len(articles)}</b> článků / zmínek:</p>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; border-color: #ddd;">
             <tr style="background-color: #f2f2f2;">
                 <th style="text-align: left;">Zdroj</th>
@@ -115,7 +116,7 @@ def main():
         return
 
     msg = MIMEMultipart()
-    msg["Subject"] = f"📰 MEDIA REPORT: Cresco Real Estate ({len(articles)} zmínek za 7 dní)"
+    msg["Subject"] = f"📰 MEDIA REPORT: Cresco / Yards / SO-HO ({len(articles)} zmínek za 7 dní)"
     msg["From"] = f"Media Monitor <{EMAIL_USER}>"
     msg["To"] = ", ".join(RECIPIENTS)
 
