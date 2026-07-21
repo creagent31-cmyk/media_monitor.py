@@ -1,17 +1,19 @@
 import os
 import smtplib
+import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import urllib.parse
 from bs4 import BeautifulSoup
 import requests
 
 # Příjemci e-mailu
 RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
+
+# Načtení přihlašovacích údajů z prostředí GitHub Actions
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# Rozšířený dotaz: Hledá "Cresco Real Estate" NEBO "Yards Žižkov" NEBO "SO-HO" za posledních 7 dní
+# Rozšířený dotaz: Hledá "Cresco Real Estate" OR "Yards" OR "SO-HO" za posledních 7 dní
 SEARCH_QUERY = '("Cresco Real Estate" OR "Yards" OR "SO-HO") when:7d'
 
 HEADERS = {
@@ -43,7 +45,9 @@ def fetch_google_news(query):
 
                 # Získání zdroje (např. iDNES, E15, Hospodářské noviny)
                 source_tag = item.find("source")
-                source_name = source_tag.text if source_tag else "Neznámý zdroj"
+                source_name = (
+                    source_tag.text if source_tag else "Neznámý zdroj"
+                )
 
                 articles.append(
                     {
@@ -108,15 +112,20 @@ def main():
     print(
         f"🔎 Spouštím monitorování médií pro: {SEARCH_QUERY} (posledních 7 dní)..."
     )
-    articles = fetch_google_news(SEARCH_QUERY)
-    print(f"📊 Nalezeno článků: {len(articles)}")
 
     if not EMAIL_USER or not EMAIL_PASSWORD:
-        print("❌ CHYBA: Chybí přístupové údaje EMAIL_USER nebo EMAIL_PASSWORD!")
+        print(
+            "❌ CHYBA: Chybí přístupové údaje EMAIL_USER nebo EMAIL_PASSWORD v Secrets!"
+        )
         return
 
+    articles = fetch_google_news(SEARCH_QUERY)
+    print(f"📊 Načteno článků: {len(articles)}")
+
     msg = MIMEMultipart()
-    msg["Subject"] = f"📰 MEDIA REPORT: Cresco / Yards / SO-HO ({len(articles)} zmínek za 7 dní)"
+    msg["Subject"] = (
+        f"📰 MEDIA REPORT: Cresco / Yards / SO-HO ({len(articles)} zmínek za 7 dní)"
+    )
     msg["From"] = f"Media Monitor <{EMAIL_USER}>"
     msg["To"] = ", ".join(RECIPIENTS)
 
