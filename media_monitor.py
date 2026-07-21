@@ -10,7 +10,7 @@ import requests
 
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
-RECIPIENTS = ["jindra@cresco.cz", EMAIL_USER]
+RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 
 QUERY = '"Cresco Real Estate"'
 
