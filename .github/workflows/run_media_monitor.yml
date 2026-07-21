@@ -1,30 +1,30 @@
-name: Run Media Monitor
+name: Daily Media Monitor
 
 on:
   schedule:
-    # Spouští se každý den v 8:00 ráno UTC (upravte si čas dle potřeby)
-    - cron: '0 8 * * *'
-  workflow_dispatch: # Umožňuje spustit skript ručně přes tlačítko v Actions
+    # 6:00 UTC odpovídá 8:00 SELČ (letní čas v ČR)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Ponechává tlačítko pro ruční spuštění v GitHub Actions
 
 jobs:
   run-monitor:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repozitáře
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Nastavení Pythonu
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-language: '3.11'
 
-      - name: Install dependencies
+      - name: Instalace knihoven
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 openpyxl pandas lxml
+          pip install requests beautifulsoup4 lxml
 
-      - name: Run media monitor script
+      - name: Spuštění skriptu Media Monitor
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
