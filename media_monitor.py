@@ -14,9 +14,10 @@ RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# Maximální stáří článku ve dnech (např. 2 dny pro denní monitoring)
-MAX_AGE_DAYS = 2
+# Maximální stáří článku ve dnech (pro test dáme 10 dní, po otestování zmínek upravte na 2)
+MAX_AGE_DAYS = 10
 
+# OSTRÝ DOTAZ: Přesné fráze pro CZ i SK + blokování nechtěných webů a spamu
 SEARCH_QUERY = (
     "("
     '"Cresco Real Estate" OR "Cresco Group" OR "SO-HO Residence" OR "SO-HO Rezidencie" OR '
@@ -36,25 +37,23 @@ HEADERS = {
 
 
 def is_recent(pub_date_str, max_days):
-    """Zkontroluje, zda je datum v RSS mladší než max_days."""
+    """Zkontroluje, zda je datum v RSS opravdu mladší než max_days."""
     try:
-        # Příklad formátu z RSS: 'Tue, 21 Jul 2026 14:30:00 GMT'
         parsed_tuple = email.utils.parsedate_tz(pub_date_str)
         if parsed_tuple:
             pub_dt = datetime.fromtimestamp(
                 email.utils.mktime_tz(parsed_tuple)
             )
             now = datetime.now()
-            # Pokud je článek mladší než určeno v MAX_AGE_DAYS
             return (now - pub_dt) <= timedelta(days=max_days)
     except Exception as e:
         print(f"⚠️ Nepodařilo se přečíst datum '{pub_date_str}': {e}")
-    # Pokud datum nelze přečíst, pro jistotu článek ponecháme
     return True
 
 
 def fetch_google_news(query):
     encoded_query = urllib.parse.quote(query)
+    # Prohledává české i slovenské zdroje (bez gl=CZ)
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=cs&ceid=CZ:cs"
     articles = []
 
@@ -76,14 +75,14 @@ def fetch_google_news(query):
                     source_tag.text if source_tag else "Neznámý zdroj"
                 )
 
-                # 1. Filtrování spamu
+                # 1. Filtrování spamu (Pojistka v Pythonu)
                 if (
                     "vietnam.vn" in link.lower()
                     or "vietnam.vn" in source_name.lower()
                 ):
                     continue
 
-                # 2. Kontrola stáří článku v Pythonu
+                # 2. Kontrola stáří článku
                 if not is_recent(pub_date, MAX_AGE_DAYS):
                     print(
                         f"⏰ Přeskočen starý článek ({pub_date}): {title[:40]}..."
@@ -110,7 +109,7 @@ def build_email_body(articles):
     if not articles:
         return f"""
         <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
             <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
             <p>Za poslední <b>{MAX_AGE_DAYS} dny</b> nebyly v médiích nalezeny žádné nové zmínky k projektům Cresco Real Estate.</p>
             <p style="font-size: 0.8em; color: #888;">Vygenerováno: {now_str}</p>
@@ -132,7 +131,7 @@ def build_email_body(articles):
     <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
         <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
         <p>Sledované projekty: <b>Cresco Real Estate, SO-HO Residence, Slnečnice, Yards, River Park</b></p>
-        <p>Nalezeno celkem <b>{len(articles)}</b> nových článků za poslední <b>{MAX_AGE_DAYS} dny</b>:</p>
+        <p>Nalezeno celkem <b>{len(articles)}</b> releventních článků za poslední <b>{MAX_AGE_DAYS} dny</b>:</p>
         
         <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; border-color: #e0e0e0;">
             <tr style="background-color: #f8f9fa;">
@@ -151,7 +150,9 @@ def build_email_body(articles):
 
 
 def main():
-    print(f"🔎 Spouštím Real Estate monitoring (Max stáří: {MAX_AGE_DAYS} dny)...")
+    print(
+        f"🔎 Spouštím Real Estate monitoring (Max stáří: {MAX_AGE_DAYS} dny)..."
+    )
 
     if not EMAIL_USER or not EMAIL_PASSWORD:
         print("❌ CHYBA: Chybí přístupové údaje v prostředí (Secrets)!")
@@ -162,7 +163,7 @@ def main():
 
     msg = MIMEMultipart()
     msg["Subject"] = (
-        f"📰 REAL ESTATE MONITOR: Cresco & Projekty ({len(articles)} nových)"
+        f"📰 REAL ESTATE MONITOR: Cresco & Projekty ({len(articles)} zmínek)"
     )
     msg["From"] = f"Media Monitor <{EMAIL_USER}>"
     msg["To"] = ", ".join(RECIPIENTS)
