@@ -2,8 +2,8 @@ name: Daily Media Monitor
 
 on:
   schedule:
-    # 6:00 UTC = 8:00 českého času
-    - cron: '0 6 * * *'
+    # 6:15 UTC = 8:15 českého letního času (SELČ)
+    - cron: '15 6 * * *'
   workflow_dispatch:
 
 jobs:
