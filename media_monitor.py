@@ -14,16 +14,15 @@ RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# Maximální stáří článku ve dnech (pro test dáme 10 dní, po otestování zmínek upravte na 2)
-MAX_AGE_DAYS = 10
+# Maximální stáří článku ve dnech (pro denní monitoring doporučeno 2, pro širší test např. 7)
+MAX_AGE_DAYS = 2
 
-# OSTRÝ DOTAZ: Přesné fráze pro CZ i SK + blokování nechtěných webů a spamu
+# VYBALANCOVANÝ DOTAZ: Najde články i rozhovory, ale filtruje spam a balast
 SEARCH_QUERY = (
     "("
-    '"Cresco Real Estate" OR "Cresco Group" OR "SO-HO Residence" OR "SO-HO Rezidencie" OR '
-    '"River Park" OR "Slnečnice Bratislava" OR "rezidencia Slnečnice" OR "projekt Slnečnice" OR '
-    '"Yards Praha" OR "Yards Cresco"'
+    'Cresco OR "SO-HO" OR Slnečnice OR "River Park" OR Yards'
     ") "
+    'AND (developer OR reality OR "real estate" OR byt OR byty OR projekt OR rezidencie OR výstavba) '
     "-site:vietnam.vn -site:prazsky.denik.cz "
     "-policie -nehoda -požár -krimi -recept -olej -semínka"
 )
@@ -53,7 +52,7 @@ def is_recent(pub_date_str, max_days):
 
 def fetch_google_news(query):
     encoded_query = urllib.parse.quote(query)
-    # Prohledává české i slovenské zdroje (bez gl=CZ)
+    # Prohledává české i slovenské zdroje
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=cs&ceid=CZ:cs"
     articles = []
 
@@ -82,7 +81,7 @@ def fetch_google_news(query):
                 ):
                     continue
 
-                # 2. Kontrola stáří článku
+                # 2. Kontrola stáří článku podle reálného data publikace
                 if not is_recent(pub_date, MAX_AGE_DAYS):
                     print(
                         f"⏰ Přeskočen starý článek ({pub_date}): {title[:40]}..."
@@ -131,7 +130,7 @@ def build_email_body(articles):
     <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
         <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
         <p>Sledované projekty: <b>Cresco Real Estate, SO-HO Residence, Slnečnice, Yards, River Park</b></p>
-        <p>Nalezeno celkem <b>{len(articles)}</b> releventních článků za poslední <b>{MAX_AGE_DAYS} dny</b>:</p>
+        <p>Nalezeno celkem <b>{len(articles)}</b> relevantních článků za poslední <b>{MAX_AGE_DAYS} dny</b>:</p>
         
         <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; border-color: #e0e0e0;">
             <tr style="background-color: #f8f9fa;">
