@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta
+import email.utils
 import os
 import smtplib
 import urllib.parse
-from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
@@ -13,16 +14,17 @@ RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# OSTRÝ DOTAZ: Přesné fráze + blokování nechtěných webů a slov
+# Maximální stáří článku ve dnech (např. 2 dny pro denní monitoring)
+MAX_AGE_DAYS = 2
+
 SEARCH_QUERY = (
-    '('
+    "("
     '"Cresco Real Estate" OR "Cresco Group" OR "SO-HO Residence" OR "SO-HO Rezidencie" OR '
     '"River Park" OR "Slnečnice Bratislava" OR "rezidencia Slnečnice" OR "projekt Slnečnice" OR '
     '"Yards Praha" OR "Yards Cresco"'
-    ') '
-    '-site:vietnam.vn -site:prazsky.denik.cz '
-    '-policie -nehoda -požár -krimi -recept -olej -semínka '
-    'when:7d'
+    ") "
+    "-site:vietnam.vn -site:prazsky.denik.cz "
+    "-policie -nehoda -požár -krimi -recept -olej -semínka"
 )
 
 HEADERS = {
@@ -31,6 +33,24 @@ HEADERS = {
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
 }
+
+
+def is_recent(pub_date_str, max_days):
+    """Zkontroluje, zda je datum v RSS mladší než max_days."""
+    try:
+        # Příklad formátu z RSS: 'Tue, 21 Jul 2026 14:30:00 GMT'
+        parsed_tuple = email.utils.parsedate_tz(pub_date_str)
+        if parsed_tuple:
+            pub_dt = datetime.fromtimestamp(
+                email.utils.mktime_tz(parsed_tuple)
+            )
+            now = datetime.now()
+            # Pokud je článek mladší než určeno v MAX_AGE_DAYS
+            return (now - pub_dt) <= timedelta(days=max_days)
+    except Exception as e:
+        print(f"⚠️ Nepodařilo se přečíst datum '{pub_date_str}': {e}")
+    # Pokud datum nelze přečíst, pro jistotu článek ponecháme
+    return True
 
 
 def fetch_google_news(query):
@@ -56,8 +76,18 @@ def fetch_google_news(query):
                     source_tag.text if source_tag else "Neznámý zdroj"
                 )
 
-                # Druhá pojistka v Pythonu: Ignorovat vietnam.vn i kdyby prošel
-                if "vietnam.vn" in link.lower() or "vietnam.vn" in source_name.lower():
+                # 1. Filtrování spamu
+                if (
+                    "vietnam.vn" in link.lower()
+                    or "vietnam.vn" in source_name.lower()
+                ):
+                    continue
+
+                # 2. Kontrola stáří článku v Pythonu
+                if not is_recent(pub_date, MAX_AGE_DAYS):
+                    print(
+                        f"⏰ Přeskočen starý článek ({pub_date}): {title[:40]}..."
+                    )
                     continue
 
                 articles.append(
@@ -82,7 +112,7 @@ def build_email_body(articles):
         <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
             <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
-            <p>Za posledních <b>7 dní</b> nebyly v médiích nalezeny žádné nové zmínky k projektům Cresco Real Estate.</p>
+            <p>Za poslední <b>{MAX_AGE_DAYS} dny</b> nebyly v médiích nalezeny žádné nové zmínky k projektům Cresco Real Estate.</p>
             <p style="font-size: 0.8em; color: #888;">Vygenerováno: {now_str}</p>
         </body>
         </html>
@@ -102,7 +132,7 @@ def build_email_body(articles):
     <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
         <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
         <p>Sledované projekty: <b>Cresco Real Estate, SO-HO Residence, Slnečnice, Yards, River Park</b></p>
-        <p>Nalezeno celkem <b>{len(articles)}</b> čistě realitních článků za posledních 7 dní:</p>
+        <p>Nalezeno celkem <b>{len(articles)}</b> nových článků za poslední <b>{MAX_AGE_DAYS} dny</b>:</p>
         
         <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; border-color: #e0e0e0;">
             <tr style="background-color: #f8f9fa;">
@@ -121,18 +151,18 @@ def build_email_body(articles):
 
 
 def main():
-    print(f"🔎 Spouštím čistý Real Estate monitoring pro: {SEARCH_QUERY}...")
+    print(f"🔎 Spouštím Real Estate monitoring (Max stáří: {MAX_AGE_DAYS} dny)...")
 
     if not EMAIL_USER or not EMAIL_PASSWORD:
         print("❌ CHYBA: Chybí přístupové údaje v prostředí (Secrets)!")
         return
 
     articles = fetch_google_news(SEARCH_QUERY)
-    print(f"📊 Načteno relevantních článků: {len(articles)}")
+    print(f"📊 Načteno aktuálních článků: {len(articles)}")
 
     msg = MIMEMultipart()
     msg["Subject"] = (
-        f"📰 REAL ESTATE MONITOR: Cresco & Projekty ({len(articles)} zmínek)"
+        f"📰 REAL ESTATE MONITOR: Cresco & Projekty ({len(articles)} nových)"
     )
     msg["From"] = f"Media Monitor <{EMAIL_USER}>"
     msg["To"] = ", ".join(RECIPIENTS)
@@ -146,7 +176,7 @@ def main():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.sendmail(EMAIL_USER, RECIPIENTS, msg.as_string())
-        print("✅ Čistý e-mail byl úspěšně odeslán!")
+        print("✅ E-mail byl úspěšně odeslán!")
     except Exception as e:
         print(f"❌ Chyba při odesílání e-mailu: {e}")
 
