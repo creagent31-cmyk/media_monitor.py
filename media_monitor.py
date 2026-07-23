@@ -13,8 +13,17 @@ RECIPIENTS = ["jindra@cresco.cz", "petrjindr31@gmail.com"]
 EMAIL_USER = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 
-# Rozšířený dotaz: České i Slovenské projekty + klíčová slova za posledních 7 dní
-SEARCH_QUERY = '("Cresco Real Estate" OR "Yards" OR "SO-HO" OR "River Park" OR "Slnečnice") when:7d'
+# OSTRÝ DOTAZ: Přesné fráze + blokování nechtěných webů a slov
+SEARCH_QUERY = (
+    '('
+    '"Cresco Real Estate" OR "Cresco Group" OR "SO-HO Residence" OR "SO-HO Rezidencie" OR '
+    '"River Park" OR "Slnečnice Bratislava" OR "rezidencia Slnečnice" OR "projekt Slnečnice" OR '
+    '"Yards Praha" OR "Yards Cresco"'
+    ') '
+    '-site:vietnam.vn -site:prazsky.denik.cz '
+    '-policie -nehoda -požár -krimi -recept -olej -semínka '
+    'when:7d'
+)
 
 HEADERS = {
     "User-Agent": (
@@ -26,7 +35,6 @@ HEADERS = {
 
 def fetch_google_news(query):
     encoded_query = urllib.parse.quote(query)
-    # Odstraněno omezení gl=CZ, aby Google vracel CZ i SK výsledky
     url = f"https://news.google.com/rss/search?q={encoded_query}&hl=cs&ceid=CZ:cs"
     articles = []
 
@@ -47,6 +55,10 @@ def fetch_google_news(query):
                 source_name = (
                     source_tag.text if source_tag else "Neznámý zdroj"
                 )
+
+                # Druhá pojistka v Pythonu: Ignorovat vietnam.vn i kdyby prošel
+                if "vietnam.vn" in link.lower() or "vietnam.vn" in source_name.lower():
+                    continue
 
                 articles.append(
                     {
@@ -69,8 +81,8 @@ def build_email_body(articles):
         return f"""
         <html>
         <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>📰 Monitoring médií (CZ + SK)</h2>
-            <p>Za posledních <b>7 dní</b> nebyly v médiích nalezeny žádné nové zmínky.</p>
+            <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
+            <p>Za posledních <b>7 dní</b> nebyly v médiích nalezeny žádné nové zmínky k projektům Cresco Real Estate.</p>
             <p style="font-size: 0.8em; color: #888;">Vygenerováno: {now_str}</p>
         </body>
         </html>
@@ -88,9 +100,9 @@ def build_email_body(articles):
     return f"""
     <html>
     <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
-        <h2 style="color: #1a5276;">📰 Monitoring médií (CZ + SK)</h2>
-        <p>Sledovaná témata: <b>Cresco Real Estate, Yards, SO-HO, River Park, Slnečnice</b></p>
-        <p>Nalezeno celkem <b>{len(articles)}</b> článků / zmínek za posledních 7 dní:</p>
+        <h2 style="color: #1a5276;">📰 Real Estate Media Monitoring (CZ + SK)</h2>
+        <p>Sledované projekty: <b>Cresco Real Estate, SO-HO Residence, Slnečnice, Yards, River Park</b></p>
+        <p>Nalezeno celkem <b>{len(articles)}</b> čistě realitních článků za posledních 7 dní:</p>
         
         <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; width: 100%; border-color: #e0e0e0;">
             <tr style="background-color: #f8f9fa;">
@@ -109,18 +121,18 @@ def build_email_body(articles):
 
 
 def main():
-    print(f"🔎 Spouštím monitorování médií (CZ/SK) pro: {SEARCH_QUERY}...")
+    print(f"🔎 Spouštím čistý Real Estate monitoring pro: {SEARCH_QUERY}...")
 
     if not EMAIL_USER or not EMAIL_PASSWORD:
         print("❌ CHYBA: Chybí přístupové údaje v prostředí (Secrets)!")
         return
 
     articles = fetch_google_news(SEARCH_QUERY)
-    print(f"📊 Načteno článků: {len(articles)}")
+    print(f"📊 Načteno relevantních článků: {len(articles)}")
 
     msg = MIMEMultipart()
     msg["Subject"] = (
-        f"📰 MEDIA REPORT (CZ/SK): Cresco & Projekty ({len(articles)} zmínek)"
+        f"📰 REAL ESTATE MONITOR: Cresco & Projekty ({len(articles)} zmínek)"
     )
     msg["From"] = f"Media Monitor <{EMAIL_USER}>"
     msg["To"] = ", ".join(RECIPIENTS)
@@ -134,7 +146,7 @@ def main():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.sendmail(EMAIL_USER, RECIPIENTS, msg.as_string())
-        print("✅ E-mail s přehledem médií byl úspěšně odeslán!")
+        print("✅ Čistý e-mail byl úspěšně odeslán!")
     except Exception as e:
         print(f"❌ Chyba při odesílání e-mailu: {e}")
 
